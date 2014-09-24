@@ -14,7 +14,7 @@ func GetConnection() (*zmq.Socket) {
 		common.PrintErrorAndQuit(err)
 	}
 
-	err = conn.Connect("tcp://127.0.0.1:5556")
+	err = conn.Connect("tcp://127.0.0.1:9000")
 	if err != nil {
 		common.PrintErrorAndQuit(err)
 	}

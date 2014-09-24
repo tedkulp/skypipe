@@ -1,10 +1,16 @@
 package main
 
 import (
+	"flag"
 	"log"
-	"github.com/tedkulp/skypipe/common"
+	"fmt"
 	zmq "github.com/pebbe/zmq4"
+
+	"github.com/tedkulp/skypipe/common"
 )
+
+var bindIp = flag.String("bind_ip", "*", "IP Address to bind the server to. Defaults to: *")
+var port   = flag.Int("port", 9000, "Port to bind the server to. Defaults to: 9000")
 
 func HandleHello(conn *zmq.Socket, clientId []byte) {
 	log.Println("HELLO")
@@ -90,15 +96,25 @@ func SliceIndex(limit int, predicate func(i int) bool) int {
 	return -1
 }
 
+func init() {
+	flag.StringVar(bindIp, "l", "*", "IP Address to bind the server to. Defaults to: *")
+	flag.IntVar(port, "p", 9000, "Port to bind the server to. Defaults to: 9000")
+}
+
 func main() {
+	flag.Parse()
+
+	address := fmt.Sprintf("tcp://%s:%d", *bindIp, *port)
 	server, _ := zmq.NewSocket(zmq.ROUTER)
-	err := server.Bind("tcp://*:5556")
+	err := server.Bind(address)
 	if err != nil {
 		log.Println(err)
 	}
 
 	buffers := make(map[string][][]byte)
 	clients := make(map[string][][]byte)
+
+	log.Println("Listening on", address)
 
 	for {
 		msg, err := server.RecvMessageBytes(0)
@@ -126,7 +142,7 @@ func main() {
 				SendAck(server, clientId)
 		}
 
-		log.Println(clients)
+		// log.Println(clients)
 
 		if err != nil {
 			break //  Interrupted
