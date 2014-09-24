@@ -1,15 +1,10 @@
 package main
 
 import (
-	"os"
-	"fmt"
 	"log"
+	"github.com/tedkulp/skypipe/common"
 	zmq "github.com/pebbe/zmq4"
 )
-
-func PrintError(err error) {
-	fmt.Fprintln(os.Stderr, err)
-}
 
 func HandleHello(conn *zmq.Socket, clientId []byte) {
 	log.Println("HELLO")
@@ -19,7 +14,7 @@ func HandleHello(conn *zmq.Socket, clientId []byte) {
 func SendData(conn *zmq.Socket, clientId []byte, pipeName string, data []byte) (count int) {
 	count, err := conn.SendMessage(clientId, "SKYPIPE/0.1", "DATA", pipeName, data)
 	if err != nil {
-		PrintError(err)
+		common.PrintError(err)
 	}
 
 	return count
@@ -28,7 +23,7 @@ func SendData(conn *zmq.Socket, clientId []byte, pipeName string, data []byte) (
 func SendAck(conn *zmq.Socket, clientId []byte) (count int) {
 	count, err := conn.SendMessage(clientId, "SKYPIPE/0.1", "ACK")
 	if err != nil {
-		PrintError(err)
+		common.PrintError(err)
 	}
 
 	return count
