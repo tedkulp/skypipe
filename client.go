@@ -3,9 +3,7 @@ package main
 import (
 	"os"
 	"fmt"
-	// "io"
 	"io/ioutil"
-	// "bufio"
 	zmq "github.com/pebbe/zmq4"
 )
 
@@ -14,7 +12,7 @@ func PrintError(err error) {
 	os.Exit(-1)
 }
 
-func getConnection() (*zmq.Socket) {
+func GetConnection() (*zmq.Socket) {
 	conn, err := zmq.NewSocket(zmq.DEALER)
 	if err != nil {
 		PrintError(err)
@@ -28,20 +26,20 @@ func getConnection() (*zmq.Socket) {
 	return conn
 }
 
-func handleInputMode(pipeName string) {
-	conn := getConnection()
+func HandleInputMode(pipeName string) {
+	conn := GetConnection()
 
 	data, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {
 		PrintError(err)
 	}
 
-	sendData(conn, pipeName, data)
+	SendData(conn, pipeName, data)
 
 	conn.Close()
 }
 
-func sendCommand(conn *zmq.Socket, cmd string, args... string) ([]string, error) {
+func SendCommand(conn *zmq.Socket, cmd string, args... string) ([]string, error) {
 	_, err := conn.SendMessage("SKYPIPE/0.1", cmd, args)
 	if err != nil {
 		PrintError(err)
@@ -55,7 +53,7 @@ func sendCommand(conn *zmq.Socket, cmd string, args... string) ([]string, error)
 	return msg, err
 }
 
-func sendData(conn *zmq.Socket, pipeName string, data []byte) {
+func SendData(conn *zmq.Socket, pipeName string, data []byte) {
 	_, err := conn.SendMessage("SKYPIPE/0.1", "DATA", pipeName, data)
 	if err != nil {
 		PrintError(err)
@@ -67,24 +65,24 @@ func sendData(conn *zmq.Socket, pipeName string, data []byte) {
 	}
 }
 
-func handleOutputMode(pipeName string) {
-	conn := getConnection()
+func HandleOutputMode(pipeName string) {
+	conn := GetConnection()
 
-	sendCommand(conn, "HELLO")
-	msg, err := sendCommand(conn, "LISTEN", pipeName)
+	SendCommand(conn, "HELLO")
+	msg, err := SendCommand(conn, "LISTEN", pipeName)
 
-	for !handleResponse(msg, err) {
+	for !HandleResponse(msg, err) {
 		msg, err = conn.RecvMessage(0)
 		if err != nil {
 			PrintError(err)
 		}
 	}
 
-	msg, err = sendCommand(conn, "UNLISTEN", pipeName)
+	msg, err = SendCommand(conn, "UNLISTEN", pipeName)
 	conn.Close()
 }
 
-func handleResponse(msg []string, _ error) (shouldExit bool) {
+func HandleResponse(msg []string, _ error) (shouldExit bool) {
 	switch msg[1] {
 		case "DATA":
 			fmt.Println(msg[3])
@@ -103,8 +101,8 @@ func main() {
 	pipeName := "TEST"
 
 	if stdin.Mode() & os.ModeNamedPipe > 0 {
-		handleInputMode(pipeName)
+		HandleInputMode(pipeName)
 	} else {
-		handleOutputMode(pipeName)
+		HandleOutputMode(pipeName)
 	}
 }
