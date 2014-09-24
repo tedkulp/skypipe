@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 	"fmt"
-	"log"
+	// "log"
 	zmq "github.com/pebbe/zmq4"
 )
 
@@ -95,39 +95,12 @@ func SliceIndex(limit int, predicate func(i int) bool) int {
 	return -1
 }
 
-func rep_socket_monitor(addr string) {
-	s, err := zmq.NewSocket(zmq.PAIR)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	err = s.Connect(addr)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	for {
-		a, b, c, err := s.RecvEvent(0)
-		if err != nil {
-			log.Println(err)
-			break
-		}
-		log.Println(a, b, c)
-	}
-	s.Close()
-}
-
 func main() {
 	server, _ := zmq.NewSocket(zmq.ROUTER)
 	err := server.Bind("tcp://*:5556")
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	// REP socket monitor, all events
-	err = server.Monitor("inproc://monitor.rep", zmq.EVENT_ALL)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	go rep_socket_monitor("inproc://monitor.rep")
 
 	buffers := make(map[string][][]byte)
 	clients := make(map[string][][]byte)
