@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 	"fmt"
-	// "log"
+	"log"
 	zmq "github.com/pebbe/zmq4"
 )
 
@@ -12,7 +12,7 @@ func PrintError(err error) {
 }
 
 func HandleHello(conn *zmq.Socket, clientId []byte) {
-	fmt.Println("HELLO")
+	log.Println("HELLO")
 	conn.SendMessage(clientId, "HELLO")
 }
 
@@ -35,7 +35,7 @@ func SendAck(conn *zmq.Socket, clientId []byte) (count int) {
 }
 
 func HandleListen(conn *zmq.Socket, clients map[string][][]byte, buffers map[string][][]byte, clientId []byte, pipeName string) {
-	fmt.Println("LISTEN", pipeName)
+	log.Println("LISTEN", pipeName)
 
 	idx := SliceIndex(len(clients[pipeName]), func(i int) bool { return ByteArrayEquals(clients[pipeName][i], clientId) })
 	if idx == -1 {
@@ -62,7 +62,7 @@ func HandleListen(conn *zmq.Socket, clients map[string][][]byte, buffers map[str
 }
 
 func HandleUnlisten(conn *zmq.Socket, clients map[string][][]byte, clientId []byte, pipeName string) {
-	fmt.Println("UNLISTEN", pipeName)
+	log.Println("UNLISTEN", pipeName)
 
 	idx := SliceIndex(len(clients[pipeName]), func(i int) bool { return ByteArrayEquals(clients[pipeName][i], clientId) })
 	if idx > -1 {
@@ -99,7 +99,7 @@ func main() {
 	server, _ := zmq.NewSocket(zmq.ROUTER)
 	err := server.Bind("tcp://*:5556")
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 
 	buffers := make(map[string][][]byte)
@@ -107,27 +107,31 @@ func main() {
 
 	for {
 		msg, err := server.RecvMessageBytes(0)
+		clientId, cmd := msg[0], msg[2]
 
-		switch string(msg[2]) {
+		switch string(cmd) {
 			case "HELLO":
-				HandleHello(server, msg[0])
+				HandleHello(server, clientId)
 			case "LISTEN":
-				HandleListen(server, clients, buffers, msg[0], string(msg[3]))
+				HandleListen(server, clients, buffers, clientId, string(msg[3]))
 			case "UNLISTEN":
 				HandleUnlisten(server, clients, msg[0], string(msg[3]))
 			case "DATA":
-				_, pipeHasClients := clients[string(msg[3])]
-				if pipeHasClients && len(clients[string(msg[3])]) > 0 {
-					for _, clientId := range clients[string(msg[3])] {
-						SendData(server, clientId, string(msg[3]), msg[4])
+				pipeName := string(msg[3])
+				log.Println("DATA", pipeName)
+
+				_, pipeHasClients := clients[pipeName]
+				if pipeHasClients && len(clients[pipeName]) > 0 {
+					for _, outputClientId := range clients[pipeName] {
+						SendData(server, outputClientId, pipeName, msg[4])
 					}
 				} else {
-					buffers[string(msg[3])] = append(buffers[string(msg[3])], msg[4])
+					buffers[pipeName] = append(buffers[pipeName], msg[4])
 				}
-				server.SendMessage(msg[0], "SKYPIPE/0.1", "ACK")
+				SendAck(server, clientId)
 		}
 
-		fmt.Println(clients)
+		log.Println(clients)
 
 		if err != nil {
 			break //  Interrupted
