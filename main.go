@@ -20,6 +20,10 @@ func GetConnection() (*zmq.Socket) {
 	}
 
 	address  := fmt.Sprintf("tcp://%s:%d", *hostname, *port)
+	if os.Getenv("SATELLITE") != "" {
+		address = os.Getenv("SATELLITE")
+	}
+
 	err = conn.Connect(address)
 	if err != nil {
 		common.PrintErrorAndQuit(err)
