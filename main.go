@@ -20,7 +20,6 @@ func GetConnection() (*zmq.Socket) {
 	}
 
 	address  := fmt.Sprintf("tcp://%s:%d", *hostname, *port)
-	fmt.Println(address)
 	err = conn.Connect(address)
 	if err != nil {
 		common.PrintErrorAndQuit(err)
