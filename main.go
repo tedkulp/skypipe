@@ -2,11 +2,16 @@ package main
 
 import (
 	"os"
+	"flag"
 	"fmt"
 	"io/ioutil"
-	"github.com/tedkulp/skypipe/common"
 	zmq "github.com/pebbe/zmq4"
+
+	"github.com/tedkulp/skypipe/common"
 )
+
+var hostname = flag.String("hostname", "127.0.0.1", "IP Address to connect to. Defaults to: 127.0.0.1")
+var port     = flag.Int("port", 9000, "Port to bind the server to. Defaults to: 9000")
 
 func GetConnection() (*zmq.Socket) {
 	conn, err := zmq.NewSocket(zmq.DEALER)
@@ -14,7 +19,9 @@ func GetConnection() (*zmq.Socket) {
 		common.PrintErrorAndQuit(err)
 	}
 
-	err = conn.Connect("tcp://127.0.0.1:9000")
+	address  := fmt.Sprintf("tcp://%s:%d", *hostname, *port)
+	fmt.Println(address)
+	err = conn.Connect(address)
 	if err != nil {
 		common.PrintErrorAndQuit(err)
 	}
@@ -92,9 +99,20 @@ func HandleResponse(msg []string, _ error) (shouldExit bool) {
 	return false
 }
 
+func init() {
+	flag.StringVar(hostname, "h", "127.0.0.1", "IP Address to connect to. Defaults to: 127.0.0.1")
+	flag.IntVar(port, "p", 9000, "Port to bind the server to. Defaults to: 9000")
+}
+
 func main() {
-	stdin, _  := os.Stdin.Stat()
-	pipeName := "TEST"
+	flag.Parse()
+
+	stdin, _ := os.Stdin.Stat()
+	pipeName := "__DEFAULT__"
+
+	if len(flag.Args()) > 0 {
+		pipeName = flag.Args()[0];
+	}
 
 	if stdin.Mode() & os.ModeNamedPipe > 0 {
 		HandleInputMode(pipeName)
