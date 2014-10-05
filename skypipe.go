@@ -112,7 +112,7 @@ func (c clients) Write(data []byte) (n int, err error) {
 
 func handleInputMode(id string, pipeName string) {
 	// log.Println("input", id, pipeName)
-	conn, err := websocket.Dial("ws://" + *server + "/" + id + "/in", "", "http://" + *server)
+	conn, err := websocket.Dial("ws://" + *server + "/" + strings.Join([]string{id, pipeName}, "-") + "/in", "", "http://" + *server)
 
 	if err != nil {
 		panic(err)
@@ -122,7 +122,7 @@ func handleInputMode(id string, pipeName string) {
 }
 
 func handleOutputMode(id string, pipeName string) {
-	conn, err := websocket.Dial("ws://" + *server + "/" + id + "/out", "", "http://" + *server)
+	conn, err := websocket.Dial("ws://" + *server + "/" + strings.Join([]string{id, pipeName}, "-") + "/out", "", "http://" + *server)
 
 	if err != nil {
 		panic(err)
@@ -226,7 +226,11 @@ func main() {
 		startDaemon()
 	} else {
 		stdin, _ := os.Stdin.Stat()
-		pipeName := "__DEFAULT__"
+		pipeName := ""
+
+		if len(flag.Args()) > 0 {
+			pipeName = flag.Args()[0];
+		}
 
 		// id, err := uuid.NewV4()
 		// if err != nil {
