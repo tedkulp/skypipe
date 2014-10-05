@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"io"
@@ -11,17 +12,20 @@ import (
 
 	"code.google.com/p/go.net/websocket"
 	"github.com/nu7hatch/gouuid"
+	"github.com/oleiade/lane"
 )
 
 const VERSION = "0.2"
 const PROTOCOL_VERSION = "SKYPIPE/0.2"
 
 var daemon *bool = flag.Bool("d", false, "run the server daemon")
+var server *string = flag.String("s", "localhost:3000", "use a different server to start session")
 
 type session struct {
 	Name         string
 	Transmitters *clients
 	Receivers    *clients
+	Buffers      *lane.Queue
 	EOF          chan int
 }
 
@@ -30,6 +34,18 @@ func (s session) Close() {
 	for _ = range s.Receivers.c {
 		s.EOF <- 0
 	}
+}
+
+func (s session) HasBufferedData() (bool) {
+	return s.Buffers.Size() > 0
+}
+
+func (s session) BufferData(buff *bytes.Buffer) {
+	s.Buffers.Enqueue(buff)
+}
+
+func (s session) GetNextData() (*bytes.Buffer) {
+	return s.Buffers.Dequeue().(*bytes.Buffer)
 }
 
 type sessions struct {
@@ -54,6 +70,7 @@ func (s sessions) Create(name string) (*session, error) {
 		Name:         name,
 		Transmitters: &clients{c: make(map[string]io.Writer)},
 		Receivers:    &clients{c: make(map[string]io.Writer)},
+		Buffers:      lane.NewQueue(),
 		EOF:          make(chan int),
 	}
 
@@ -95,7 +112,7 @@ func (c clients) Write(data []byte) (n int, err error) {
 
 func handleInputMode(id string, pipeName string) {
 	// log.Println("input", id, pipeName)
-	conn, err := websocket.Dial("ws://localhost:3000/"+id+"/in", "", "http://localhost:3000")
+	conn, err := websocket.Dial("ws://" + *server + "/" + id + "/in", "", "http://" + *server)
 
 	if err != nil {
 		panic(err)
@@ -105,7 +122,7 @@ func handleInputMode(id string, pipeName string) {
 }
 
 func handleOutputMode(id string, pipeName string) {
-	conn, err := websocket.Dial("ws://localhost:3000/"+id+"/out", "", "http://localhost:3000")
+	conn, err := websocket.Dial("ws://" + *server + "/" + id + "/out", "", "http://" + *server)
 
 	if err != nil {
 		panic(err)
@@ -156,6 +173,9 @@ func startDaemon() {
 								} else {
 									// Put the data into a buffer and we'll run it
 									// out the next connecting receiver
+									buff := new(bytes.Buffer)
+									io.Copy(buff, conn)
+									session.BufferData(buff)
 								}
 
 								// This will probably go
@@ -166,8 +186,12 @@ func startDaemon() {
 
 								log.Println(sessionName + ": viewer connected [websocket]")
 
-								// Wait on an EOF
-								<-session.EOF
+								if session.HasBufferedData() {
+									io.Copy(conn, session.GetNextData())
+								} else {
+									// Wait on an EOF
+									<-session.EOF
+								}
 
 								// We've EOF'd, remove the listener from the session
 								session.Receivers.Remove(transId)
@@ -182,8 +206,13 @@ func startDaemon() {
 	port := "3000"
 
 	val := os.Getenv("PORT")
-	if (val != "") {
+	if val != "" {
 		port = val
+	} else {
+		parts := strings.Split(*server, ":")
+		if len(parts) > 1 {
+			port = parts[1]
+		}
 	}
 
 	log.Println("Skypipe server started on " + port + "...")
